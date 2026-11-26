@@ -1,0 +1,16 @@
+{
+  "name": "คลังวัสดุและอุปกรณ์ โรงเรียนอนุบาลยุวพัฒน์นครสวรรค์",
+  "short_name": "คลังอุปกรณ์",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#14532d",
+  "theme_color": "#14532d",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -16,6 +16,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <!-- Google Identity Services สำหรับดึงอีเมลอัตโนมัติ -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
     * {
       font-family: 'Sarabun', sans-serif;
@@ -72,8 +74,18 @@
         </button>
       </div>
 
+      <!-- แถบแสดงสถานะการล็อกอิน Google (จำอีเมลอัตโนมัติ) -->
+      <div class="mt-3 bg-white/10 border border-white/20 rounded-xl px-3 py-2 flex items-center justify-between gap-2 text-xs">
+        <div class="min-w-0 flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-green-300 shrink-0"></span>
+          <span id="logged-email-display" class="truncate text-green-50 font-medium">ยังไม่ได้เข้าสู่ระบบ Google</span>
+        </div>
+        <div id="google-btn-container" class="shrink-0"></div>
+        <button id="logout-btn" onclick="signOutGoogle()" class="hidden shrink-0 text-green-200 underline font-semibold">เปลี่ยนบัญชี</button>
+      </div>
+
       <!-- แถบเลือกผู้ทำรายการแบบฝังใน Header -->
-      <div class="mt-4 bg-white rounded-2xl p-3 shadow-sm text-slate-800">
+      <div class="mt-3 bg-white rounded-2xl p-3 shadow-sm text-slate-800">
         <div class="flex items-center justify-between text-xs text-slate-500 mb-1 px-1">
           <span class="font-bold text-[#14532d]">ผู้ทำรายการปัจจุบัน</span>
           <span id="header-role-tag" class="bg-green-50 text-[#14532d] px-2 py-0.5 rounded font-semibold">โหมดเบิกอุปกรณ์</span>
@@ -101,12 +113,14 @@
         
         <!-- กล่องยืนยันสิทธิ์ (แสดงเฉพาะตอนกดแท็บ เติมสต็อก) -->
         <div id="restock-auth-card" class="hidden bg-white rounded-2xl p-4 border-2 border-[#14532d] shadow-xs space-y-3">
-          <div class="flex items-center gap-2 text-[#14532d]">
-            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-            <h2 class="font-bold text-base">ยืนยันสิทธิ์เติมสต็อก (@yuwapat.ac.th)</h2>
+          <div class="flex items-center justify-between text-[#14532d]">
+            <div class="flex items-center gap-2">
+              <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+              <h2 class="font-bold text-base">ยืนยันสิทธิ์เติมสต็อก (@yuwapat.ac.th)</h2>
+            </div>
           </div>
           <div class="grid grid-cols-1 gap-2.5">
-            <input type="email" id="auth-email" placeholder="กรอกอีเมล name@yuwapat.ac.th" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-[#14532d] focus:outline-none">
+            <input type="email" id="auth-email" placeholder="อีเมล name@yuwapat.ac.th (ดึงอัตโนมัติเมื่อล็อกอิน)" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-[#14532d] focus:outline-none">
             <input type="password" id="auth-pin" inputmode="numeric" placeholder="กรอกรหัส PIN ยืนยัน" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-[#14532d] focus:outline-none">
           </div>
         </div>
@@ -242,15 +256,82 @@
   </div>
 
   <script>
-    // *** วาง URL เว็บแอป (/exec) ของ Google Apps Script ที่นี่ ***
+    // 1. วาง URL เว็บแอป (/exec) ของ Google Apps Script ที่นี่
     const API_URL = "https://script.google.com/macros/s/AKfycbxJFPsAPf8O8FpbKYroOMdpOEgAl-PQpLJMS6X7-vfmke7rfrXyhqjzElp0jnlJu16ptw/exec";
+    
+    // 2. วาง Google Client ID (จาก Google Cloud Console) เพื่อดึงอีเมลอัตโนมัติ
+    const GOOGLE_CLIENT_ID = "775125629910-or3v35bh5sfv9709p22tcmmv7fd9gvv6.apps.googleusercontent.com";
 
     let appData = { stocks: [], staffs: [], transactions: [] };
-    let activeMode = "withdraw"; // withdraw | restock | report
+    let activeMode = "withdraw";
     let selectedCat = "ทั้งหมด";
     let carts = { withdraw: {}, restock: {} };
+    let savedEmail = localStorage.getItem("yuwapat_stock_email") || "";
 
-    window.onload = loadData;
+    window.onload = function() {
+      initGoogleAuth();
+      loadData();
+    };
+
+    // --- ระบบล็อกอิน Google เก็บอีเมลอัตโนมัติ ---
+    function initGoogleAuth() {
+      updateEmailUI();
+      if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_ID.includes(".apps.googleusercontent.com") && window.google) {
+        google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: handleCredentialResponse
+        });
+        if (!savedEmail) {
+          google.accounts.id.renderButton(
+            document.getElementById("google-btn-container"),
+            { theme: "outline", size: "small", text: "signin_with", shape: "pill" }
+          );
+          google.accounts.id.prompt();
+        }
+      }
+    }
+
+    function handleCredentialResponse(response) {
+      try {
+        const base64Url = response.credential.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+        const profile = JSON.parse(jsonPayload);
+        
+        if (profile && profile.email) {
+          savedEmail = profile.email;
+          localStorage.setItem("yuwapat_stock_email", savedEmail);
+          updateEmailUI();
+        }
+      } catch (e) {
+        console.error("Decode JWT error:", e);
+      }
+    }
+
+    function signOutGoogle() {
+      savedEmail = "";
+      localStorage.removeItem("yuwapat_stock_email");
+      document.getElementById('auth-email').value = "";
+      updateEmailUI();
+      initGoogleAuth();
+    }
+
+    function updateEmailUI() {
+      const display = document.getElementById("logged-email-display");
+      const btnBox = document.getElementById("google-btn-container");
+      const logoutBtn = document.getElementById("logout-btn");
+      const authEmailInput = document.getElementById("auth-email");
+
+      if (savedEmail) {
+        display.innerText = savedEmail;
+        btnBox.innerHTML = "";
+        logoutBtn.classList.remove("hidden");
+        if (authEmailInput) authEmailInput.value = savedEmail;
+      } else {
+        display.innerText = "เข้าสู่ระบบเพื่อบันทึกอีเมลอัตโนมัติ";
+        logoutBtn.classList.add("hidden");
+      }
+    }
 
     function escapeHtml(str) {
       if (!str) return "";
@@ -356,6 +437,7 @@
           listHeading.innerText = 'รายการวัสดุสำหรับเบิก';
         } else {
           authCard.classList.remove('hidden');
+          if (savedEmail) document.getElementById('auth-email').value = savedEmail;
           roleTag.innerText = 'โหมดเติมสต็อก';
           listHeading.innerText = 'รายการวัสดุสำหรับเติมสต็อก';
         }
@@ -405,7 +487,6 @@
 
         return `
           <div class="bg-white rounded-2xl p-3.5 border-2 transition flex items-center gap-3.5 shadow-2xs ${qty > 0 ? 'border-[#14532d] bg-green-50/30' : 'border-transparent'} ${isOut ? 'opacity-55' : ''}">
-            <!-- กรอบรูปสินค้าจริงจาก Google Sheets -->
             <div class="w-20 h-20 rounded-xl bg-slate-50 border border-slate-200 shrink-0 flex flex-col items-center justify-center relative overflow-hidden">
               ${imgUrl 
                 ? `<img src="${escapeHtml(imgUrl)}" referrerpolicy="no-referrer" alt="" class="w-full h-full object-contain p-1 bg-white" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
@@ -420,7 +501,6 @@
               </span>
             </div>
 
-            <!-- รายละเอียด -->
             <div class="flex-1 min-w-0">
               <span class="text-[11px] font-semibold text-slate-400 block">${escapeHtml(it.category)}</span>
               <h4 class="font-bold text-slate-900 text-base leading-snug line-clamp-2">${escapeHtml(it.name)}</h4>
@@ -549,7 +629,14 @@
         id: it.id, name: it.name, qty: it.qty, unit: it.unit
       }));
 
-      const payload = { action: activeMode, user: user, note: note, items: itemsArray };
+      const payload = { 
+        action: activeMode, 
+        user: user, 
+        note: note, 
+        items: itemsArray,
+        email: savedEmail || "ไม่ได้ล็อกอินอีเมล"
+      };
+
       if (activeMode === 'restock') {
         payload.email = document.getElementById('auth-email').value.trim();
         payload.pin = document.getElementById('auth-pin').value.trim();

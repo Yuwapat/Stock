@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>คลังวัสดุและอุปกรณ์</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon.png">
+  <link rel="icon" type="image/png" href="icon.png">
+  <meta name="theme-color" content="#14532d">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <style>
+    * {
+      font-family: 'Sarabun', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body {
+      background-color: #f4f7f5;
+      color: #0f172a;
+    }
+    .app-container {
+      max-width: 540px;
+      margin: 0 auto;
+      min-height: 100vh;
+      background-color: #f4f7f5;
+      display: flex;
+      flex-direction: column;
+    }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    
+    .pill-active {
+      background-color: #14532d;
+      color: #ffffff;
+      border-color: #14532d;
+      box-shadow: 0 4px 10px rgba(20, 83, 45, 0.25);
+    }
+    .nav-active {
+      color: #14532d;
+    }
+    .nav-active .nav-icon-bg {
+      background-color: #dcfce7;
+      color: #14532d;
+    }
+    input, select { font-size: 16px !important; }
+  </style>
+</head>
+<body>
+
+  <div class="app-container">
+
+    <!-- ==================== HEADER แบบโค้งมนทันสมัย ==================== -->
+    <header class="bg-gradient-to-br from-[#14532d] to-[#166534] text-white pt-5 pb-7 px-5 rounded-b-[28px] shadow-md relative z-10">
+      <div class="flex justify-between items-start">
+        <div>
+          <span class="inline-block px-2.5 py-0.5 bg-white/15 text-green-50 rounded-full text-xs font-medium mb-1">
+            โรงเรียนอนุบาลยุวพัฒน์นครสวรรค์
+          </span>
+          <h1 class="text-xl font-bold tracking-tight text-white">คลังวัสดุและอุปกรณ์</h1>
+        </div>
+        <button onclick="loadData()" class="w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 active:scale-95 flex items-center justify-center text-white transition" title="อัปเดตข้อมูล">
+          <svg id="refresh-icon" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- แถบเลือกผู้ทำรายการแบบฝังใน Header -->
+      <div class="mt-4 bg-white rounded-2xl p-3 shadow-sm text-slate-800">
+        <div class="flex items-center justify-between text-xs text-slate-500 mb-1 px-1">
+          <span class="font-bold text-[#14532d]">ผู้ทำรายการปัจจุบัน</span>
+          <span id="header-role-tag" class="bg-green-50 text-[#14532d] px-2 py-0.5 rounded font-semibold">โหมดเบิกอุปกรณ์</span>
+        </div>
+        <select id="user-select" onchange="handleUserChange(this.value)" class="w-full py-2 px-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:border-[#14532d]">
+          <option value="">-- กำลังโหลดรายชื่อ... --</option>
+        </select>
+        <div id="custom-name-wrap" class="hidden mt-2">
+          <input type="text" id="custom-name-input" placeholder="พิมพ์ชื่อ-นามสกุล หรือชื่อเล่น..." class="w-full py-2 px-3 border border-[#14532d] rounded-xl bg-green-50/30 focus:bg-white focus:outline-none">
+        </div>
+      </div>
+    </header>
+
+    <!-- ==================== MAIN CONTENT ==================== -->
+    <main class="flex-1 px-4 pt-4 pb-36 overflow-y-auto space-y-4">
+
+      <!-- หน้าโหลดข้อมูล -->
+      <div id="loading-box" class="bg-white rounded-2xl border border-slate-200 p-10 text-center shadow-2xs">
+        <div class="inline-block w-9 h-9 border-4 border-[#14532d] border-t-transparent rounded-full animate-spin mb-3"></div>
+        <p class="text-slate-700 font-semibold text-base">กำลังโหลดข้อมูลจากคลังวัสดุ...</p>
+      </div>
+
+      <!-- โหมด 1 & 2: เบิกอุปกรณ์ / เติมสต็อก -->
+      <div id="page-market" class="hidden space-y-4">
+        
+        <!-- กล่องยืนยันสิทธิ์ (แสดงเฉพาะตอนกดแท็บ เติมสต็อก) -->
+        <div id="restock-auth-card" class="hidden bg-white rounded-2xl p-4 border-2 border-[#14532d] shadow-xs space-y-3">
+          <div class="flex items-center gap-2 text-[#14532d]">
+            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+            <h2 class="font-bold text-base">ยืนยันสิทธิ์เติมสต็อก (@yuwapat.ac.th)</h2>
+          </div>
+          <div class="grid grid-cols-1 gap-2.5">
+            <input type="email" id="auth-email" placeholder="กรอกอีเมล name@yuwapat.ac.th" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-[#14532d] focus:outline-none">
+            <input type="password" id="auth-pin" inputmode="numeric" placeholder="กรอกรหัส PIN ยืนยัน" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-[#14532d] focus:outline-none">
+          </div>
+        </div>
+
+        <!-- ช่องค้นหา -->
+        <div class="relative">
+          <input type="text" id="search-input" oninput="renderItems()" placeholder="ค้นหาชื่ออุปกรณ์ หรือรหัส เช่น กาแฟ, A0001..." 
+            class="w-full pl-11 pr-4 py-3.5 bg-white border border-slate-200 rounded-2xl shadow-2xs focus:outline-none focus:border-[#14532d]">
+          <svg class="w-5 h-5 text-[#14532d] absolute left-4 top-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 1010.5 18a7.5 7.5 0 006.15-3.35z"/>
+          </svg>
+        </div>
+
+        <!-- แถบเลือกหมวดหมู่แบบ Pill -->
+        <div id="category-pills" class="flex gap-2 overflow-x-auto no-scrollbar pb-1"></div>
+
+        <!-- หัวข้อรายการ + ตัวนับจำนวน -->
+        <div class="flex items-center justify-between px-1">
+          <h3 id="list-heading" class="font-bold text-slate-800 text-base">รายการวัสดุทั้งหมด</h3>
+          <span id="list-counter" class="text-xs font-semibold text-slate-500">0 รายการ</span>
+        </div>
+
+        <!-- รายการสินค้า -->
+        <div id="items-container" class="space-y-3"></div>
+      </div>
+
+      <!-- โหมด 3: รายงานสรุป -->
+      <div id="page-report" class="hidden space-y-4">
+        <div class="grid grid-cols-2 gap-3">
+          <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
+            <span class="text-xs font-bold text-slate-500">รายการวัสดุทั้งหมด</span>
+            <div id="rep-total" class="text-3xl font-bold text-[#14532d] mt-1">0</div>
+            <span class="text-[11px] text-slate-400">รายการในคลัง</span>
+          </div>
+          <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
+            <span class="text-xs font-bold text-slate-500">ถึงจุดต้องสั่งซื้อ</span>
+            <div id="rep-low" class="text-3xl font-bold text-slate-900 mt-1">0</div>
+            <span class="text-[11px] text-slate-500">รายการใกล้หมด</span>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
+          <div class="px-4 py-3 bg-[#14532d] text-white flex justify-between items-center">
+            <h3 class="font-bold text-base">ยอดคงเหลือปัจจุบัน</h3>
+            <span class="text-xs text-green-100">อัปเดตล่าสุด</span>
+          </div>
+          <div id="rep-stock-list" class="divide-y divide-slate-100"></div>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-2xs">
+          <h3 class="font-bold text-[#14532d] text-base mb-3 pb-2 border-b border-slate-100">ประวัติการทำรายการล่าสุด</h3>
+          <div id="rep-history-list" class="divide-y divide-slate-100"></div>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- ==================== FLOATING CART BAR ==================== -->
+    <div id="floating-cart" class="hidden sticky bottom-[72px] mx-3 mb-2 bg-[#14532d] text-white rounded-2xl p-3.5 shadow-xl z-20 flex items-center justify-between gap-3 border border-green-800">
+      <div class="flex items-center gap-3 min-w-0">
+        <div id="cart-badge-count" class="w-10 h-10 rounded-xl bg-white text-[#14532d] font-bold text-lg flex items-center justify-center shrink-0 shadow-2xs">
+          0
+        </div>
+        <div class="min-w-0">
+          <div id="cart-bar-label" class="text-sm font-bold text-white truncate">รายการในตะกร้า</div>
+          <div id="cart-bar-sub" class="text-xs text-green-100 truncate">0 ชิ้น</div>
+        </div>
+      </div>
+      <button onclick="openSummaryModal()" class="shrink-0 bg-white active:bg-green-50 text-[#14532d] font-bold px-4 py-2.5 rounded-xl text-sm shadow-xs transition">
+        ดูรายการ & ส่ง
+      </button>
+    </div>
+
+    <!-- ==================== BOTTOM NAVIGATION BAR ==================== -->
+    <nav class="sticky bottom-0 bg-white border-t border-slate-200 px-2 py-1.5 z-30">
+      <div class="grid grid-cols-3 gap-1">
+        <button onclick="switchMode('withdraw')" id="nav-withdraw" class="nav-active flex flex-col items-center justify-center py-1.5 rounded-xl transition">
+          <div class="nav-icon-bg w-10 h-7 rounded-full flex items-center justify-center mb-0.5 transition">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
+          </div>
+          <span class="text-xs font-bold">เบิกอุปกรณ์</span>
+        </button>
+
+        <button onclick="switchMode('restock')" id="nav-restock" class="text-slate-500 flex flex-col items-center justify-center py-1.5 rounded-xl transition">
+          <div class="nav-icon-bg w-10 h-7 rounded-full flex items-center justify-center mb-0.5 transition">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+          </div>
+          <span class="text-xs font-bold">เติมสต็อก</span>
+        </button>
+
+        <button onclick="switchMode('report')" id="nav-report" class="text-slate-500 flex flex-col items-center justify-center py-1.5 rounded-xl transition">
+          <div class="nav-icon-bg w-10 h-7 rounded-full flex items-center justify-center mb-0.5 transition">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          </div>
+          <span class="text-xs font-bold">รายงานยอด</span>
+        </button>
+      </div>
+    </nav>
+
+    <!-- ==================== MODAL สรุปรายการ ==================== -->
+    <div id="summary-modal" class="fixed inset-0 bg-slate-900/60 hidden items-end sm:items-center justify-center z-50">
+      <div class="bg-white rounded-t-3xl sm:rounded-2xl max-w-[540px] w-full overflow-hidden shadow-2xl flex flex-col max-h-[85vh]">
+        <div class="bg-[#14532d] text-white px-5 py-4 flex justify-between items-center">
+          <h3 id="modal-title" class="text-lg font-bold">ยืนยันรายการเบิก</h3>
+          <button onclick="closeSummaryModal()" class="text-green-100 hover:text-white text-sm font-bold px-2 py-1">ปิด</button>
+        </div>
+
+        <div class="p-4 overflow-y-auto space-y-4 flex-1">
+          <div class="bg-green-50 border border-green-200 rounded-xl p-3 flex justify-between items-center text-sm">
+            <span class="text-slate-600 font-medium">ผู้ทำรายการ:</span>
+            <span id="modal-user-display" class="font-bold text-[#14532d] text-base">-</span>
+          </div>
+
+          <div id="modal-items-list" class="divide-y divide-slate-200 border border-slate-200 rounded-xl"></div>
+
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">หมายเหตุ (ถ้ามี)</label>
+            <input type="text" id="modal-note" placeholder="ระบุสถานที่ใช้งาน หรือหมายเหตุ..." class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:border-[#14532d]">
+          </div>
+        </div>
+
+        <div class="p-4 bg-slate-50 border-t border-slate-200 grid grid-cols-2 gap-3">
+          <button onclick="closeSummaryModal()" class="py-3.5 bg-white border border-slate-300 text-slate-700 rounded-xl font-bold text-sm">
+            เลือกเพิ่ม
+          </button>
+          <button onclick="confirmSubmitOrder()" id="modal-confirm-btn" class="py-3.5 bg-[#14532d] text-white rounded-xl font-bold text-sm shadow-xs">
+            ยืนยันส่งใบเบิก
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // *** วาง URL เว็บแอป (/exec) ของ Google Apps Script ที่นี่ ***
+    const API_URL = "https://script.google.com/macros/s/AKfycbxJFPsAPf8O8FpbKYroOMdpOEgAl-PQpLJMS6X7-vfmke7rfrXyhqjzElp0jnlJu16ptw/exec";
+
+    let appData = { stocks: [], staffs: [], transactions: [] };
+    let activeMode = "withdraw"; // withdraw | restock | report
+    let selectedCat = "ทั้งหมด";
+    let carts = { withdraw: {}, restock: {} };
+
+    window.onload = loadData;
+
+    function escapeHtml(str) {
+      if (!str) return "";
+      return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+
+    function formatImageUrl(url) {
+      if (!url) return "";
+      const driveMatch = url.match(/[-\w]{25,}/);
+      if (url.includes("drive.google.com") && driveMatch) {
+        return `https://lh3.googleusercontent.com/d/${driveMatch[0]}`;
+      }
+      return url;
+    }
+
+    async function loadData() {
+      const icon = document.getElementById('refresh-icon');
+      icon.classList.add('animate-spin');
+      document.getElementById('loading-box').classList.remove('hidden');
+
+      try {
+        const res = await fetch(API_URL);
+        const data = await res.json();
+        document.getElementById('loading-box').classList.add('hidden');
+        icon.classList.remove('animate-spin');
+
+        if (!data || data.success === false) {
+          Swal.fire({ icon: 'error', title: 'โหลดข้อมูลไม่สำเร็จ', text: data ? data.error : 'ไม่พบข้อมูล', confirmButtonColor: '#14532d' });
+          return;
+        }
+
+        appData = data;
+        renderUserDropdown();
+        renderCategories();
+        switchMode(activeMode);
+      } catch (err) {
+        document.getElementById('loading-box').classList.add('hidden');
+        icon.classList.remove('animate-spin');
+        Swal.fire({ icon: 'error', title: 'เชื่อมต่อไม่สำเร็จ', text: 'กรุณาตรวจสอบลิงก์ API_URL และการตั้งค่าสิทธิ์ Anyone ใน Apps Script', confirmButtonColor: '#14532d' });
+      }
+    }
+
+    function renderUserDropdown() {
+      const sel = document.getElementById('user-select');
+      const currentVal = sel.value;
+      let html = '<option value="">-- แตะเพื่อเลือกชื่อของคุณ --</option>';
+      appData.staffs.forEach(s => {
+        const fullName = `${s.name} (${s.role})`;
+        html += `<option value="${escapeHtml(s.name)}" ${currentVal === s.name ? 'selected' : ''}>${escapeHtml(fullName)}</option>`;
+      });
+      html += `<option value="OTHER" ${currentVal === 'OTHER' ? 'selected' : ''}>อื่นๆ (ระบุชื่อเอง)</option>`;
+      sel.innerHTML = html;
+    }
+
+    function handleUserChange(val) {
+      const wrap = document.getElementById('custom-name-wrap');
+      if (val === 'OTHER') {
+        wrap.classList.remove('hidden');
+        document.getElementById('custom-name-input').focus();
+      } else {
+        wrap.classList.add('hidden');
+      }
+    }
+
+    function getActiveUser() {
+      const sel = document.getElementById('user-select').value;
+      if (sel === 'OTHER') {
+        return document.getElementById('custom-name-input').value.trim();
+      }
+      return sel;
+    }
+
+    function switchMode(mode) {
+      activeMode = mode;
+      ['withdraw', 'restock', 'report'].forEach(m => {
+        const navBtn = document.getElementById('nav-' + m);
+        if (m === mode) {
+          navBtn.classList.add('nav-active');
+          navBtn.classList.remove('text-slate-500');
+        } else {
+          navBtn.classList.remove('nav-active');
+          navBtn.classList.add('text-slate-500');
+        }
+      });
+
+      const marketPage = document.getElementById('page-market');
+      const reportPage = document.getElementById('page-report');
+      const authCard = document.getElementById('restock-auth-card');
+      const roleTag = document.getElementById('header-role-tag');
+      const listHeading = document.getElementById('list-heading');
+
+      if (mode === 'report') {
+        marketPage.classList.add('hidden');
+        reportPage.classList.remove('hidden');
+        roleTag.innerText = 'โหมดรายงานยอด';
+        renderReport();
+      } else {
+        reportPage.classList.add('hidden');
+        marketPage.classList.remove('hidden');
+        if (mode === 'withdraw') {
+          authCard.classList.add('hidden');
+          roleTag.innerText = 'โหมดเบิกอุปกรณ์';
+          listHeading.innerText = 'รายการวัสดุสำหรับเบิก';
+        } else {
+          authCard.classList.remove('hidden');
+          roleTag.innerText = 'โหมดเติมสต็อก';
+          listHeading.innerText = 'รายการวัสดุสำหรับเติมสต็อก';
+        }
+        renderItems();
+      }
+      updateCartBar();
+    }
+
+    function renderCategories() {
+      const cats = ['ทั้งหมด', ...new Set(appData.stocks.map(s => s.category).filter(Boolean))];
+      document.getElementById('category-pills').innerHTML = cats.map(c => `
+        <button type="button" onclick="selectCategory('${escapeHtml(c)}')" class="shrink-0 px-4 py-2 rounded-full border text-sm font-bold transition ${selectedCat === c ? 'pill-active' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}">
+          ${escapeHtml(c)}
+        </button>
+      `).join('');
+    }
+
+    function selectCategory(cat) {
+      selectedCat = cat;
+      renderCategories();
+      renderItems();
+    }
+
+    function renderItems() {
+      const q = document.getElementById('search-input').value.toLowerCase().trim();
+      const filtered = appData.stocks.filter(it => 
+        (selectedCat === 'ทั้งหมด' || it.category === selectedCat) &&
+        (it.name.toLowerCase().includes(q) || it.id.toLowerCase().includes(q))
+      );
+
+      document.getElementById('list-counter').innerText = `${filtered.length} รายการ`;
+      if (!carts[activeMode]) carts[activeMode] = {};
+      const currentCart = carts[activeMode];
+
+      if (filtered.length === 0) {
+        document.getElementById('items-container').innerHTML = '<div class="text-center py-10 text-slate-400">ไม่พบรายการวัสดุที่ค้นหา</div>';
+        return;
+      }
+
+      document.getElementById('items-container').innerHTML = filtered.map(it => {
+        const qty = currentCart[it.id] ? currentCart[it.id].qty : 0;
+        const isOut = (activeMode === 'withdraw' && it.remain <= 0);
+        const isLow = (it.remain <= it.minStock && it.remain > 0);
+        const btnLabel = activeMode === 'withdraw' ? '+ เบิก' : '+ เติม';
+        const imgUrl = formatImageUrl(it.image);
+        const safeId = escapeHtml(it.id);
+
+        return `
+          <div class="bg-white rounded-2xl p-3.5 border-2 transition flex items-center gap-3.5 shadow-2xs ${qty > 0 ? 'border-[#14532d] bg-green-50/30' : 'border-transparent'} ${isOut ? 'opacity-55' : ''}">
+            <!-- กรอบรูปสินค้าจริงจาก Google Sheets -->
+            <div class="w-20 h-20 rounded-xl bg-slate-50 border border-slate-200 shrink-0 flex flex-col items-center justify-center relative overflow-hidden">
+              ${imgUrl 
+                ? `<img src="${escapeHtml(imgUrl)}" referrerpolicy="no-referrer" alt="" class="w-full h-full object-contain p-1 bg-white" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                   <div class="hidden flex-col items-center justify-center text-slate-400 text-[10px]"><span>ไม่มีรูป</span></div>`
+                : `<div class="flex flex-col items-center justify-center text-slate-400 text-[10px]">
+                     <svg class="w-6 h-6 text-slate-300 mb-0.5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+                     <span>ไม่มีรูป</span>
+                   </div>`
+              }
+              <span class="absolute top-1 left-1 px-1.5 py-0.2 bg-[#14532d] text-white text-[10px] font-bold rounded-md shadow-2xs">
+                ${safeId}
+              </span>
+            </div>
+
+            <!-- รายละเอียด -->
+            <div class="flex-1 min-w-0">
+              <span class="text-[11px] font-semibold text-slate-400 block">${escapeHtml(it.category)}</span>
+              <h4 class="font-bold text-slate-900 text-base leading-snug line-clamp-2">${escapeHtml(it.name)}</h4>
+              
+              <div class="flex items-center justify-between gap-2 mt-2.5 pt-2 border-t border-slate-100">
+                <div>
+                  <span class="text-[11px] text-slate-500">คงเหลือ: </span>
+                  <span class="font-bold text-base ${it.remain <= 0 ? 'text-slate-400' : (isLow ? 'text-slate-900 underline decoration-2' : 'text-[#14532d]')}">
+                    ${it.remain}
+                  </span>
+                  <span class="text-xs text-slate-600">${escapeHtml(it.unit)}</span>
+                </div>
+
+                ${isOut 
+                  ? `<span class="px-3 py-1.5 bg-slate-200 text-slate-500 rounded-xl text-xs font-bold">สินค้าหมด</span>`
+                  : qty === 0 
+                    ? `<button type="button" onclick="addItem('${safeId}')" class="px-4 py-2 bg-[#14532d] active:scale-95 text-white text-sm font-bold rounded-xl shadow-2xs transition">
+                        ${btnLabel}
+                       </button>`
+                    : `<div class="flex items-center bg-white border-2 border-[#14532d] rounded-xl overflow-hidden">
+                        <button type="button" onclick="updateQty('${safeId}', -1)" class="w-9 h-9 bg-slate-100 active:bg-slate-200 font-bold text-lg text-slate-800">-</button>
+                        <span class="w-9 text-center font-bold text-base text-[#14532d]">${qty}</span>
+                        <button type="button" onclick="updateQty('${safeId}', 1)" class="w-9 h-9 bg-[#14532d] text-white font-bold text-lg">+</button>
+                       </div>`
+                }
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function addItem(id) {
+      const it = appData.stocks.find(s => s.id === id);
+      if (!it) return;
+      carts[activeMode][id] = { ...it, qty: 1 };
+      renderItems();
+      updateCartBar();
+    }
+
+    function updateQty(id, delta) {
+      const c = carts[activeMode];
+      if (!c[id]) return;
+      const next = c[id].qty + delta;
+      if (next <= 0) {
+        delete c[id];
+      } else if (activeMode === 'restock' || next <= c[id].remain) {
+        c[id].qty = next;
+      } else {
+        Swal.fire({ icon: 'warning', title: 'เกินจำนวนคงเหลือ', text: `มีในคลังทั้งหมด ${c[id].remain} ${c[id].unit}`, confirmButtonColor: '#14532d' });
+      }
+      renderItems();
+      updateCartBar();
+      if (!document.getElementById('summary-modal').classList.contains('hidden')) renderModalList();
+    }
+
+    function updateCartBar() {
+      const bar = document.getElementById('floating-cart');
+      if (activeMode === 'report') { bar.classList.add('hidden'); return; }
+      const keys = Object.keys(carts[activeMode]);
+      if (keys.length === 0) { bar.classList.add('hidden'); return; }
+
+      bar.classList.remove('hidden');
+      const totalQty = keys.reduce((s, k) => s + carts[activeMode][k].qty, 0);
+      document.getElementById('cart-badge-count').innerText = keys.length;
+      document.getElementById('cart-bar-label').innerText = activeMode === 'withdraw' ? 'รายการที่เลือกเบิก' : 'รายการที่เลือกเติมสต็อก';
+      document.getElementById('cart-bar-sub').innerText = `${keys.length} รายการ (รวม ${totalQty} ชิ้น)`;
+    }
+
+    function openSummaryModal() {
+      const user = getActiveUser();
+      if (!user) {
+        Swal.fire({ icon: 'warning', title: 'กรุณาเลือกชื่อผู้ทำรายการก่อน', text: 'เลือกชื่อของคุณในกล่องสีขาวด้านบนสุดก่อนกดส่งรายการ', confirmButtonColor: '#14532d' });
+        return;
+      }
+      if (activeMode === 'restock') {
+        const email = document.getElementById('auth-email').value.trim().toLowerCase();
+        const pin = document.getElementById('auth-pin').value.trim();
+        if (!email.endsWith('@yuwapat.ac.th') || !pin) {
+          Swal.fire({ icon: 'warning', title: 'กรุณายืนยันสิทธิ์ก่อน', text: 'กรอกอีเมล @yuwapat.ac.th และรหัส PIN ด้านบนให้ครบถ้วน', confirmButtonColor: '#14532d' });
+          return;
+        }
+      }
+
+      document.getElementById('modal-title').innerText = activeMode === 'withdraw' ? 'สรุปรายการเบิกวัสดุ' : 'สรุปรายการเติมสต็อก';
+      document.getElementById('modal-confirm-btn').innerText = activeMode === 'withdraw' ? 'ยืนยันส่งใบเบิก' : 'ยืนยันการเติมสต็อก';
+      document.getElementById('modal-user-display').innerText = user;
+      renderModalList();
+      document.getElementById('summary-modal').classList.remove('hidden');
+      document.getElementById('summary-modal').classList.add('flex');
+    }
+
+    function closeSummaryModal() {
+      document.getElementById('summary-modal').classList.add('hidden');
+      document.getElementById('summary-modal').classList.remove('flex');
+    }
+
+    function renderModalList() {
+      const c = carts[activeMode];
+      const keys = Object.keys(c);
+      if (keys.length === 0) { closeSummaryModal(); return; }
+
+      document.getElementById('modal-items-list').innerHTML = keys.map(k => {
+        const it = c[k];
+        const safeId = escapeHtml(it.id);
+        return `
+          <div class="p-3 flex items-center justify-between gap-2 bg-white">
+            <div class="min-w-0">
+              <div class="font-bold text-slate-900 text-sm">${escapeHtml(it.name)}</div>
+              <div class="text-xs text-slate-500">คงเหลือเดิม ${it.remain} ${escapeHtml(it.unit)}</div>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+              <button onclick="updateQty('${safeId}', -1)" class="w-8 h-8 bg-slate-100 rounded-lg font-bold">-</button>
+              <span class="w-7 text-center font-bold text-[#14532d]">${it.qty}</span>
+              <button onclick="updateQty('${safeId}', 1)" class="w-8 h-8 bg-[#14532d] text-white rounded-lg font-bold">+</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function confirmSubmitOrder() {
+      const user = getActiveUser();
+      const note = document.getElementById('modal-note').value.trim();
+      const itemsArray = Object.values(carts[activeMode]).map(it => ({
+        id: it.id, name: it.name, qty: it.qty, unit: it.unit
+      }));
+
+      const payload = { action: activeMode, user: user, note: note, items: itemsArray };
+      if (activeMode === 'restock') {
+        payload.email = document.getElementById('auth-email').value.trim();
+        payload.pin = document.getElementById('auth-pin').value.trim();
+      }
+
+      closeSummaryModal();
+      Swal.fire({ title: activeMode === 'withdraw' ? 'กำลังบันทึกการเบิก...' : 'กำลังบันทึกการเติมสต็อก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+      try {
+        const res = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(payload)
+        });
+        const result = await res.json();
+
+        if (result.success) {
+          carts[activeMode] = {};
+          document.getElementById('modal-note').value = "";
+          Swal.fire({
+            icon: 'success',
+            title: 'บันทึกรายการเรียบร้อย',
+            text: `${activeMode === 'withdraw' ? 'เบิก' : 'เติมสต็อก'}ทั้งหมด ${itemsArray.length} รายการ โดย ${user}`,
+            confirmButtonColor: '#14532d'
+          });
+          loadData();
+        } else {
+          Swal.fire({ icon: 'error', title: 'ไม่สำเร็จ', text: result.error, confirmButtonColor: '#14532d' });
+        }
+      } catch (err) {
+        Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาดในการส่งข้อมูล', text: err.message, confirmButtonColor: '#14532d' });
+      }
+    }
+
+    function renderReport() {
+      const low = appData.stocks.filter(s => s.remain <= s.minStock);
+      document.getElementById('rep-total').innerText = appData.stocks.length;
+      document.getElementById('rep-low').innerText = low.length;
+
+      document.getElementById('rep-stock-list').innerHTML = appData.stocks.map(s => {
+        const isLow = s.remain <= s.minStock;
+        return `
+          <div class="p-3.5 flex items-center justify-between gap-2 ${isLow ? 'bg-slate-50' : ''}">
+            <div class="min-w-0">
+              <span class="text-xs font-bold text-[#14532d]">${escapeHtml(s.id)}</span>
+              <span class="text-xs text-slate-400"> • ${escapeHtml(s.category)}</span>
+              <div class="font-bold text-slate-900 text-sm truncate">${escapeHtml(s.name)}</div>
+            </div>
+            <div class="text-right shrink-0">
+              <div class="font-bold text-base ${isLow ? 'text-slate-900' : 'text-[#14532d]'}">${s.remain} <span class="text-xs font-normal text-slate-500">${escapeHtml(s.unit)}</span></div>
+              ${isLow ? '<span class="px-2 py-0.5 bg-slate-800 text-white rounded text-[10px] font-bold">ถึงจุดสั่งซื้อ</span>' : '<span class="px-2 py-0.5 bg-green-50 text-[#14532d] rounded text-[10px] font-bold">ปกติ</span>'}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      document.getElementById('rep-history-list').innerHTML = appData.transactions.map(h => {
+        const isW = h.type === 'เบิกออก';
+        return `
+          <div class="py-3 flex justify-between items-start gap-2">
+            <div class="min-w-0">
+              <span class="px-2 py-0.5 rounded text-[11px] font-bold ${isW ? 'bg-slate-100 text-slate-800' : 'bg-[#14532d] text-white'}">${escapeHtml(h.type)}</span>
+              <span class="font-bold text-slate-900 text-sm ml-1">${escapeHtml(h.name)}</span>
+              <div class="text-xs text-slate-500 mt-1">โดย ${escapeHtml(h.user)} • ${escapeHtml(h.date)} ${h.note ? `(${escapeHtml(h.note)})` : ''}</div>
+            </div>
+            <div class="font-bold text-sm shrink-0 ${isW ? 'text-slate-800' : 'text-[#14532d]'}">${isW ? '-' : '+'}${h.qty} ${escapeHtml(h.unit)}</div>
+          </div>
+        `;
+      }).join('');
+    }
+  </script>
+</body>
+</html>
